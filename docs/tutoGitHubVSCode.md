@@ -18,10 +18,19 @@ Toda informação necessária para se usar o GitHub está no guia introdutório 
 - Git
 - Conta no GitHub 
 
-### Criando um Repositório no GitHub
+### Criando um Repositório no GitHub pelo VSCode
 
 Para integrar o código produzido localmente no VSCode com o código no GitHub devemos primeiro abrir uma pasta para o projeto.
 
-![pic1](./media/git/p1.png)
+![pic1](/media/git/p1.png)
 
-Então Clica-se em Controle do Código-Fonte na a lateral esquerda, e depois em publicar no github
+Então Clica-se em Controle do Código-Fonte na a lateral esquerda, e depois em publicar no GitHub, se não houver feito a sincronização do Git com a sua conta do GitHub uma página para logar com a sua conta do GitHub será aberta, após a sincronização é só publicar normalmente.
+
+### Clonando um repositório no VSCode
+
+Ao iniciar um novo projeto a partir de um repositório já existente, Clique F1 e escreva o comando: 
+```
+Git:Clone
+```
+Insira o URL do repositório a ser clonado, escolha uma pasta no seu computador para o projeto, e pronto.
+  

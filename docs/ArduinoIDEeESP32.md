@@ -2,7 +2,7 @@
 
 ## Instalação Arduino IDE
 
-tal
+instalar
 
 ## Instalação das bibliotecas do ESP32
 
