@@ -3,3 +3,5 @@
 ## Características
 
 ## Resolução de Problemas
+
+- Power Supply
