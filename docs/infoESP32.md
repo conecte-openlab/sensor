@@ -2,6 +2,8 @@
 
 ## Características
 
+## Iniciando
+
 ## Resolução de Problemas
 
 - Power Supply
