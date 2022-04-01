@@ -1,6 +1,6 @@
 # Leia-me
 
-Sensor SparkFun
+Sensor SparkFun 1
 
 ## Tutoriais:
 
