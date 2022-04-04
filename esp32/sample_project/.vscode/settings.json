@@ -1,7 +1,0 @@
-{
-  "C_Cpp.intelliSenseEngine": "Tag Parser",
-  "files.associations": {
-    "esp_system.h": "c",
-    "esp_spi_flash.h": "c"
-  }
-}
