@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "..\\.."
+		},
+		{
+			"name": "ESP32-SPARKFUN-ARDUINO",
+			"path": "."
+		}
+	],
+	"settings": {}
+}
