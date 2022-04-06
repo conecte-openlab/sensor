@@ -13,8 +13,8 @@ extern "C" {
 #include "FS.h"
 #include "LITTLEFS.h"
 
-#define WIFI_SSID "FERNANDA 2G"
-#define WIFI_PASSWORD "joca1524"
+#define WIFI_SSID "...."
+#define WIFI_PASSWORD "...."
 
 #define MQTT_HOST IPAddress(192, 168, 0, 126)
 #define MQTT_PORT 1883
