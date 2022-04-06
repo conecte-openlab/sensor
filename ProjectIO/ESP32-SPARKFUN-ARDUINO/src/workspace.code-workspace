@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "..\\..\\..\\..\\..\\..\\Documents\\PlatformIO\\Projects\\MSP"
+		},
+		{
+			"name": "ESP32-SPARKFUN-ARDUINO",
+			"path": ".."
+		}
+	],
+	"settings": {}
+}

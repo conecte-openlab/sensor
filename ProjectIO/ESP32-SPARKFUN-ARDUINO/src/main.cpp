@@ -2,18 +2,21 @@
 #include <SparkFun_Bio_Sensor_Hub_Library.h>
 #include <Wire.h>
 #include <WiFi.h>
-//#include <ArduinoJson.h>
+//#include <WebServer.h>
+#include <ArduinoJson.h>
 //#include <Esp32MQTTClient.h>
 extern "C" {
 	#include "freertos/FreeRTOS.h"
 	#include "freertos/timers.h"
 }
 #include <AsyncMqttClient.h>
+#include "FS.h"
+#include "LITTLEFS.h"
 
-#define WIFI_SSID "MERCUSYS"
-#define WIFI_PASSWORD "12345678"
+#define WIFI_SSID "FERNANDA 2G"
+#define WIFI_PASSWORD "joca1524"
 
-#define MQTT_HOST IPAddress(192, 168, 1, 10)
+#define MQTT_HOST IPAddress(192, 168, 0, 126)
 #define MQTT_PORT 1883
 
 #define resPin 4
@@ -22,32 +25,22 @@ extern "C" {
 AsyncMqttClient mqttClient;
 TimerHandle_t mqttReconnectTimer;
 TimerHandle_t wifiReconnectTimer;
+SparkFun_Bio_Sensor_Hub bioHub(resPin, mfioPin); 
+bioData body;  
+char buff[256];
+DynamicJsonDocument  doc(200);
+
 
 void connectToWifi() {
   Serial.println("Connecting to Wi-Fi...");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  delay(10000);
 }
 
 void connectToMqtt() {
   Serial.println("Connecting to MQTT...");
   mqttClient.connect();
-}
-
-void WiFiEvent(WiFiEvent_t event) {
-    Serial.printf("[WiFi-event] event: %d\n", event);
-    switch(event) {
-    case SYSTEM_EVENT_STA_GOT_IP:
-        Serial.println("WiFi connected");
-        Serial.println("IP address: ");
-        Serial.println(WiFi.localIP());
-        connectToMqtt();
-        break;
-    case SYSTEM_EVENT_STA_DISCONNECTED:
-        Serial.println("WiFi lost connection");
-        xTimerStop(mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
-        xTimerStart(wifiReconnectTimer, 0);
-        break;
-    }
+  delay(4000);
 }
 
 void onMqttConnect(bool sessionPresent) {
@@ -112,12 +105,9 @@ void onMqttPublish(uint16_t packetId) {
   Serial.print("  packetId: ");
   Serial.println(packetId);
 }
-SparkFun_Bio_Sensor_Hub bioHub(resPin, mfioPin); 
-
-bioData body;  
 
 void setup(){
-
+  
   Serial.begin(115200);
   
 //  WiFi.begin(SSID,pass);
@@ -131,7 +121,7 @@ void setup(){
   mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToMqtt));
   wifiReconnectTimer = xTimerCreate("wifiTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToWifi));
 
-  WiFi.onEvent(WiFiEvent);
+  
 
   mqttClient.onConnect(onMqttConnect);
   mqttClient.onDisconnect(onMqttDisconnect);
@@ -142,6 +132,9 @@ void setup(){
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
 
   connectToWifi();
+
+  connectToMqtt();
+
   Wire.begin();
 
   int result = bioHub.begin();
@@ -168,6 +161,7 @@ void setup(){
 
   Serial.println("Loading up the buffer with data....");
   delay(4000); 
+  mqttClient.subscribe("devices/esp",0);
   
 }
 
@@ -180,16 +174,20 @@ void loop(){
     body = bioHub.readBpm();
     Serial.print("Heartrate: ");
     Serial.println(body.heartRate); 
+    doc["Heart"] = body.heartRate;
     Serial.print("Confidence: ");
     Serial.println(body.confidence); 
     Serial.print("Oxygen: ");
     Serial.println(body.oxygen); 
+    doc["Oxygen"] = body.oxygen;
     Serial.print("Status: ");
     Serial.println(body.status); 
     Serial.print("Extended Status: ");
     Serial.println(body.extStatus); 
     Serial.print("Blood Oxygen R value: ");
     Serial.println(body.rValue); 
+    serializeJson(doc,buff);
+    mqttClient.publish("devices/esp",0,true,buff);
     // Slow it down or your heart rate will go up trying to keep up
     // with the flow of numbers
     delay(2500); 
