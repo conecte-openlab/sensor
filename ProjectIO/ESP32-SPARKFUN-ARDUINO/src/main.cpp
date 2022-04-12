@@ -13,14 +13,18 @@ extern "C" {
 #include "FS.h"
 #include "LITTLEFS.h"
 
-#define WIFI_SSID "...."
-#define WIFI_PASSWORD "...."
+// Constantes
 
-#define MQTT_HOST IPAddress(192, 168, 0, 126)
+#define WIFI_SSID "tplink"
+#define WIFI_PASSWORD "wireless"
+
+#define MQTT_HOST IPAddress(192, 168, 0, 100)
 #define MQTT_PORT 1883
 
 #define resPin 4
 #define mfioPin 5
+
+//definição de variávies e objetos
 
 AsyncMqttClient mqttClient;
 TimerHandle_t mqttReconnectTimer;
@@ -30,6 +34,8 @@ bioData body;
 char buff[256];
 DynamicJsonDocument  doc(200);
 
+
+// funções extras
 
 void connectToWifi() {
   Serial.println("Connecting to Wi-Fi...");
@@ -109,20 +115,13 @@ void onMqttPublish(uint16_t packetId) {
 void setup(){
   
   Serial.begin(115200);
-  
-//  WiFi.begin(SSID,pass);
-//  while (WiFi.status() != WL_CONNECTED) {
-//  delay(500);
-//  Serial.println("Connecting to WiFi..");
-//  }
-//  Serial.println("Connected to the WiFi network");
-//  }
+
+//Timers reconexão
 
   mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToMqtt));
   wifiReconnectTimer = xTimerCreate("wifiTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToWifi));
 
-  
-
+//Configuração mqtt
   mqttClient.onConnect(onMqttConnect);
   mqttClient.onDisconnect(onMqttDisconnect);
   mqttClient.onSubscribe(onMqttSubscribe);
@@ -131,12 +130,15 @@ void setup(){
   mqttClient.onPublish(onMqttPublish);
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
 
+  // conexão wifi e server mqtt
   connectToWifi();
-
   connectToMqtt();
 
+  // I2C
   Wire.begin();
+  
 
+  // Configuração Bio Hub
   int result = bioHub.begin();
   if (result == 0) //Zero errors!
     Serial.println("Sensor started!");
@@ -154,13 +156,10 @@ void setup(){
     Serial.print("Error: "); 
     Serial.println(error); 
   }
-
-  // Data lags a bit behind the sensor, if you're finger is on the sensor when
-  // it's being configured this delay will give some time for the data to catch
-  // up. 
-
   Serial.println("Loading up the buffer with data....");
   delay(4000); 
+
+  // Subscribe no topico
   mqttClient.subscribe("devices/esp",0);
   
 }
@@ -169,8 +168,7 @@ void setup(){
 //Loop 
 void loop(){
 
-    // Information from the readBpm function will be saved to our "body"
-    // variable.  
+    // Lendo dados e adicionando no doc
     body = bioHub.readBpm();
     Serial.print("Heartrate: ");
     Serial.println(body.heartRate); 
@@ -180,13 +178,17 @@ void loop(){
     Serial.print("Oxygen: ");
     Serial.println(body.oxygen); 
     doc["Oxygen"] = body.oxygen;
+    doc["Confidence"] = body.confidence;
     Serial.print("Status: ");
     Serial.println(body.status); 
+    doc["Status"] = body.status;
     Serial.print("Extended Status: ");
     Serial.println(body.extStatus); 
-    Serial.print("Blood Oxygen R value: ");
-    Serial.println(body.rValue); 
+    doc["ExtStatus"] = body.extStatus;
+
+    //Json para string
     serializeJson(doc,buff);
+    //Publish
     mqttClient.publish("devices/esp",0,true,buff);
     // Slow it down or your heart rate will go up trying to keep up
     // with the flow of numbers
