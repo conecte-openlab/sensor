@@ -1,6 +1,6 @@
 # Leia-me
 
-Sensor SparkFun 1
+Sensoriamento remoto de sinais biomédicos - IC
 
 ## Tutoriais:
 
