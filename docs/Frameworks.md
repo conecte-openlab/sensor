@@ -1,10 +1,10 @@
 # Frameworks para o ESP32
 
-Um framework é um software com finalidade genérica, que disponibiliza diversas ferramentas facilitadoras para se desenvolver outros softwares.
+Um framework (estrutura em inglês) é um software com finalidade genérica, que disponibiliza diversas bibliotecas e ferramentas para desenvolver outros softwares com finalidade específica, baseados no framework.
 
-Em microcontroladores, o framework é o conjunto de ferramentas que transformam um código de alto nível, (Python, C++, C) em instruções para o microcontrolador.
+Em microcontroladores, o framework é o conjunto de ferramentas que transformam um código de alto nível, (Python, C++, C) em instruções para o microcontrolador, cabendo ao framework a compilação e comunicação com o microcontrolador. O framework também é responsável por definir os parâmetros internos do MCU e os disponibilizar para serem acessados pelo código.
 
-O ESP32 apresenta 2 frameworks distintos:
+O ESP32 apresenta 2 frameworks principais:
 ## ESP-IDF
 O ESP-IDF é o framework oficial de desenvolvimento para o ESP32
 [Documentação](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/)

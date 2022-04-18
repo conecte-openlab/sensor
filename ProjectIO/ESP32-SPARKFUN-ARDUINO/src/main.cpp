@@ -137,7 +137,6 @@ void setup(){
   // I2C
   Wire.begin();
   
-
   // Configuração Bio Hub
   int result = bioHub.begin();
   if (result == 0) //Zero errors!
@@ -164,7 +163,6 @@ void setup(){
   
 }
 
-
 //Loop 
 void loop(){
 
@@ -173,15 +171,16 @@ void loop(){
     Serial.print("Heartrate: ");
     Serial.println(body.heartRate); 
     doc["Heart"] = body.heartRate;
-    Serial.print("Confidence: ");
-    Serial.println(body.confidence); 
+
     Serial.print("Oxygen: ");
     Serial.println(body.oxygen); 
     doc["Oxygen"] = body.oxygen;
     doc["Confidence"] = body.confidence;
+
     Serial.print("Status: ");
     Serial.println(body.status); 
     doc["Status"] = body.status;
+    
     Serial.print("Extended Status: ");
     Serial.println(body.extStatus); 
     doc["ExtStatus"] = body.extStatus;
