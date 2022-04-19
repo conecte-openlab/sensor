@@ -11,6 +11,8 @@
 #include <ESPAsyncWebServer.h>
 
 #include <ArduinoJson.h>
+#include "AsyncJson.h"
+#include "AsyncWebSynchronization.h"
 
 #include "FS.h"
 #include "LITTLEFS.h"
@@ -89,15 +91,15 @@ void setup(){
   
   server.on("/sensor", HTTP_GET, [](AsyncWebServerRequest *request){
     AsyncResponseStream *response = request->beginResponseStream("application/json");
-    DynamicJsonDocument jsonsens(1024);
+    DynamicJsonDocument jsonbuffer;
+    JsonObject &jsonsens = jsonbuffer.createObject();
     body = bioHub.readBpm();
     jsonsens["Heart"] = body.heartRate;
     jsonsens["Oxygen"] = body.oxygen;
     jsonsens["Confidence"] = body.confidence;
     jsonsens["Status"] = body.status;
     jsonsens["ExtStatus"] = body.extStatus;
-    serializeJson(jsonsens,*response);
-
+    jsonsens.printTo(*response)
     request->send(response);
   });
 
@@ -131,11 +133,8 @@ void setup(){
 }
 
 
-//Loop 
 void loop(){
 
-    // Information from the readBpm function will be saved to our "body"
-    // variable.  
     body = bioHub.readBpm();
     Serial.println("Reading Sensor");
     jsonsens["Heart"] = body.heartRate;
