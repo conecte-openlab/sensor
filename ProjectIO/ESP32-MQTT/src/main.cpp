@@ -11,8 +11,8 @@ extern "C" {
 
 // Constantes
 
-#define WIFI_SSID "FERNANDA 2G"
-#define WIFI_PASSWORD "joca1524"
+#define WIFI_SSID ".."
+#define WIFI_PASSWORD ".."
 
 #define MQTT_HOST IPAddress(192, 168, 0, 135)
 #define MQTT_PORT 27756
