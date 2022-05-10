@@ -1,14 +1,13 @@
 #include <Arduino.h>
-#include <SparkFun_Bio_Sensor_Hub_Library.h>
 #include <Wire.h>
 #include <WiFi.h>
-//#include <WebServer.h>
 #include <ArduinoJson.h>
-//#include <Esp32MQTTClient.h>
+
 extern "C" {
 	#include "freertos/FreeRTOS.h"
 	#include "freertos/timers.h"
 }
+
 #include <AsyncMqttClient.h>
 #include "FS.h"
 #include "LITTLEFS.h"
@@ -21,16 +20,11 @@ extern "C" {
 #define MQTT_HOST IPAddress(192, 168, 0, 100)
 #define MQTT_PORT 1883
 
-#define resPin 4
-#define mfioPin 5
-
 //definição de variávies e objetos
 
 AsyncMqttClient mqttClient;
 TimerHandle_t mqttReconnectTimer;
-TimerHandle_t wifiReconnectTimer;
-SparkFun_Bio_Sensor_Hub bioHub(resPin, mfioPin); 
-bioData body;  
+TimerHandle_t wifiReconnectTimer;  
 char buff[256];
 DynamicJsonDocument  doc(200);
 
