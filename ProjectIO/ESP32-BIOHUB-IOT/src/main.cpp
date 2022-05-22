@@ -1,14 +1,13 @@
 #include <Arduino.h>
-#include <SparkFun_Bio_Sensor_Hub_Library.h>
 #include <Wire.h>
 #include <WiFi.h>
-//#include <WebServer.h>
 #include <ArduinoJson.h>
-//#include <Esp32MQTTClient.h>
+
 extern "C" {
 	#include "freertos/FreeRTOS.h"
 	#include "freertos/timers.h"
 }
+
 #include <AsyncMqttClient.h>
 #include "FS.h"
 #include "LITTLEFS.h"
@@ -21,16 +20,11 @@ extern "C" {
 #define MQTT_HOST IPAddress(192, 168, 0, 100)
 #define MQTT_PORT 1883
 
-#define resPin 4
-#define mfioPin 5
-
 //definição de variávies e objetos
 
 AsyncMqttClient mqttClient;
 TimerHandle_t mqttReconnectTimer;
-TimerHandle_t wifiReconnectTimer;
-SparkFun_Bio_Sensor_Hub bioHub(resPin, mfioPin); 
-bioData body;  
+TimerHandle_t wifiReconnectTimer;  
 char buff[256];
 DynamicJsonDocument  doc(200);
 
@@ -38,17 +32,20 @@ DynamicJsonDocument  doc(200);
 // funções extras
 
 void connectToWifi() {
+
   Serial.println("Connecting to Wi-Fi...");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  delay(10000);
+  delay(3000);
+  if ((WiFi.status() == WL_CONNECTED)){
+  Serial.print(WiFi.localIP());  
 }
-
+  return;
+}
 void connectToMqtt() {
   Serial.println("Connecting to MQTT...");
   mqttClient.connect();
   delay(4000);
 }
-
 void onMqttConnect(bool sessionPresent) {
   Serial.println("Connected to MQTT.");
   Serial.print("Session present: ");
@@ -65,7 +62,6 @@ void onMqttConnect(bool sessionPresent) {
   Serial.print("Publishing at QoS 2, packetId: ");
   Serial.println(packetIdPub2);
 }
-
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
   Serial.println("Disconnected from MQTT.");
 
@@ -73,7 +69,6 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
     xTimerStart(mqttReconnectTimer, 0);
   }
 }
-
 void onMqttSubscribe(uint16_t packetId, uint8_t qos) {
   Serial.println("Subscribe acknowledged.");
   Serial.print("  packetId: ");
@@ -81,13 +76,11 @@ void onMqttSubscribe(uint16_t packetId, uint8_t qos) {
   Serial.print("  qos: ");
   Serial.println(qos);
 }
-
 void onMqttUnsubscribe(uint16_t packetId) {
   Serial.println("Unsubscribe acknowledged.");
   Serial.print("  packetId: ");
   Serial.println(packetId);
 }
-
 void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
   Serial.println("Publish received.");
   Serial.print("  topic: ");
@@ -105,7 +98,6 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
   Serial.print("  total: ");
   Serial.println(total);
 }
-
 void onMqttPublish(uint16_t packetId) {
   Serial.println("Publish acknowledged.");
   Serial.print("  packetId: ");
@@ -132,8 +124,8 @@ void setup(){
 
   // conexão wifi e server mqtt
   connectToWifi();
-  connectToMqtt();
 
+  connectToMqtt();
   // I2C
   Wire.begin();
   
@@ -165,31 +157,23 @@ void setup(){
 
 //Loop 
 void loop(){
-
     // Lendo dados e adicionando no doc
     body = bioHub.readBpm();
     Serial.print("Heartrate: ");
     Serial.println(body.heartRate); 
-    doc["Heart"] = body.heartRate;
-
     Serial.print("Oxygen: ");
     Serial.println(body.oxygen); 
-    doc["Oxygen"] = body.oxygen;
-    doc["Confidence"] = body.confidence;
-
     Serial.print("Status: ");
     Serial.println(body.status); 
-    doc["Status"] = body.status;
-    
     Serial.print("Extended Status: ");
-    Serial.println(body.extStatus); 
-    doc["ExtStatus"] = body.extStatus;
+    Serial.println(body.extStatus);
 
-    //Json para string
+  if ((body.status==3)&&(body.extStatus==0)&&(body.heartRate!=0)){
+    doc["Heart"] = body.heartRate;
+    doc["Oxygen"] = body.oxygen;
+
     serializeJson(doc,buff);
-    //Publish
     mqttClient.publish("devices/esp",0,true,buff);
-    // Slow it down or your heart rate will go up trying to keep up
-    // with the flow of numbers
+  }
     delay(2500); 
 }
