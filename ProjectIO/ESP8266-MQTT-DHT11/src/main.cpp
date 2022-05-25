@@ -11,15 +11,12 @@
 #include <DHT.h>
 #include <DHT_U.h>
 
+#include "config.h"
+
 // Constantes
 #define DHTTYPE DHT11
 #define DHTPIN D5    
 
-#define WIFI_SSID "MERCUSYS_0422"
-#define WIFI_PASSWORD "123456789"  
-
-#define MQTT_HOST IPAddress(187,20,128,245)
-#define MQTT_PORT 27756
 //definição de variávies e objetos
 
 char buff[256];
@@ -145,6 +142,7 @@ void setup(){
   connectToWifi();
 
   mqttClient.subscribe("devices/DHT",0);
+  
   dht.begin();
   sensor_t sensor;
   dht.temperature().getSensor(&sensor);
