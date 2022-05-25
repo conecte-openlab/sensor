@@ -3,17 +3,22 @@
 #include <ESP8266WiFi.h>
 #include <Ticker.h>
 #include <AsyncMqttClient.h>
+
 #include "FS.h"
 #include "LittleFS.h"
+
 #include <Adafruit_Sensor.h>
-#include "DHTesp.h"
+#include <DHT.h>
+#include <DHT_U.h>
+
 // Constantes
 #define DHTTYPE DHT11
 #define DHTPIN D5    
-#define WIFI_SSID "FERNANDA 2G"
-#define WIFI_PASSWORD "joca1524"
 
-#define MQTT_HOST IPAddress(192, 168, 0, 135)
+#define WIFI_SSID "MERCUSYS_0422"
+#define WIFI_PASSWORD "123456789"  
+
+#define MQTT_HOST IPAddress(187,20,128,245)
 #define MQTT_PORT 27756
 //definição de variávies e objetos
 
@@ -21,37 +26,44 @@ char buff[256];
 DynamicJsonDocument  doc(200);
 AsyncMqttClient mqttClient;
 Ticker mqttReconnectTimer;
-DHTesp dht;
+Ticker wifiReconnectTimer;
+DHT_Unified dht(DHTPIN, DHTTYPE);
 
 WiFiEventHandler wifiConnectHandler;
 WiFiEventHandler wifiDisconnectHandler;
-Ticker wifiReconnectTimer;
+
+uint32_t delayMS;
 
 void connectToWifi() {
 
   Serial.println("Connecting to Wi-Fi...");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  delay(3000);
-  if ((WiFi.status() == WL_CONNECTED)){
-  Serial.print(WiFi.localIP());  
-}
+  
+  while ((WiFi.status() != WL_CONNECTED)){
+  //Serial.print(WiFi.localIP()); 
+  Serial.println("Connecting...");
+  delay(2000);
+  }
   return;
 }
 void connectToMqtt() {
   Serial.println("Connecting to MQTT...");
   mqttClient.connect();
-  delay(4000);
+  return;
 }
+
 void onWifiConnect(const WiFiEventStationModeGotIP& event) {
   Serial.println("Connected to Wi-Fi.");
   connectToMqtt();
   
 }
+
 void onWifiDisconnect(const WiFiEventStationModeDisconnected& event) {
   Serial.println("Disconnected from Wi-Fi.");
   mqttReconnectTimer.detach(); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
   wifiReconnectTimer.once(2, connectToWifi);
 }
+
 void onMqttConnect(bool sessionPresent) {
   Serial.println("Connected to MQTT.");
   Serial.print("Session present: ");
@@ -68,6 +80,7 @@ void onMqttConnect(bool sessionPresent) {
   Serial.print("Publishing at QoS 2, packetId: ");
   Serial.println(packetIdPub2);
 }
+
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
   Serial.println("Disconnected from MQTT.");
 
@@ -75,6 +88,7 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
     mqttReconnectTimer.once(2, connectToMqtt);
   }
 }
+
 void onMqttSubscribe(uint16_t packetId, uint8_t qos) {
   Serial.println("Subscribe acknowledged.");
   Serial.print("  packetId: ");
@@ -82,11 +96,13 @@ void onMqttSubscribe(uint16_t packetId, uint8_t qos) {
   Serial.print("  qos: ");
   Serial.println(qos);
 }
+
 void onMqttUnsubscribe(uint16_t packetId) {
   Serial.println("Unsubscribe acknowledged.");
   Serial.print("  packetId: ");
   Serial.println(packetId);
 }
+
 void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
   Serial.println("Publish received.");
   Serial.print("  topic: ");
@@ -104,6 +120,7 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
   Serial.print("  total: ");
   Serial.println(total);
 }
+
 void onMqttPublish(uint16_t packetId) {
   Serial.println("Publish acknowledged.");
   Serial.print("  packetId: ");
@@ -127,17 +144,29 @@ void setup(){
 
   connectToWifi();
 
-  connectToMqtt();
-
   mqttClient.subscribe("devices/DHT",0);
-
-  dht.setup(D5, DHTesp::DHT11);
+  dht.begin();
+  sensor_t sensor;
+  dht.temperature().getSensor(&sensor);
+  dht.humidity().getSensor(&sensor);
+  delayMS = sensor.min_delay / 1000;
 }
 
 //Loop 
 void loop(){
-    doc["Humidity"] = dht.getHumidity();
-    doc["Temperature"] = dht.getTemperature();
-    mqttClient.publish("devices/DHT",0,true,buff);
-    delay(10000); 
+  // Delay between measurements.
+  delay(delayMS); 
+  sensors_event_t event;
+
+  dht.temperature().getEvent(&event);
+  doc["Temperature"] = event.temperature;
+  Serial.println(event.temperature);
+  
+  dht.humidity().getEvent(&event);
+  doc["Humidity"] = event.relative_humidity;
+  Serial.println(event.relative_humidity);
+  
+  serializeJson(doc,buff);
+  mqttClient.publish("devices/DHT",0,true,buff);
+  delay(10000); 
 }
