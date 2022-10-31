@@ -2,34 +2,43 @@
 #include <PubSubClient.h>
 #include <Wire.h>
 #include "MAX30100_PulseOximeter.h"
-
-PulseOximeter pox;
-
 #include <ArduinoJson.h>
+#include <TaskScheduler.h>
 
+#define MSG_BUFFER_SIZE	(50)
 #define REPORTING_PERIOD_MS 10000
+#define SENSORREADING_PERIOD_MS 60
+
+void task_beat_callback();
+void task_beat_onDisable();
+void task_send_callback();
+void task_send_onDisable();
 
 uint32_t tsLastReport = 0;
+PulseOximeter pox;
 
 const char* ssid = "MERCUSYS";
 const char* password = "ic123456";
 const char* mqtt_server = "192.168.1.113";
 const int mqtt_port = 1883;
 
-
-
 DynamicJsonDocument doc(1024);
 char buff[1000];
+
 WiFiClient espClient;
 PubSubClient client(espClient);
+
 unsigned long lastMsg = 0;
-#define MSG_BUFFER_SIZE	(50)
+
 char msg[MSG_BUFFER_SIZE];
 int value = 0;
+int count = 0;
+
+Task beat
 
 void onBeatDetected()
 {
-    Serial.print("b");
+    count++;
 }
 
 void setup_wifi() {
@@ -114,18 +123,17 @@ void loop() {
   
   pox.update();
 
-  if (millis() - tsLastReport > REPORTING_PERIOD_MS) {
-  if (!client.connected()) {
-    reconnect();
-  }
-  client.loop();
-  doc["heartrate"] = pox.getHeartRate();
-  doc["oxygen"] = pox.getSpO2();
-
-  serializeJson(doc,buff);
-  Serial.println(buff);
-  client.publish("Device/BO",buff);
-
-  tsLastReport = millis();
+  if (count>6||(millis() - tsLastReport)>REPORTING_PERIOD_MS) {
+    if (!client.connected()) {
+      reconnect();
+    }
+    count=0;
+    client.loop();
+    doc["heartrate"] = pox.getHeartRate();
+    doc["oxygen"] = pox.getSpO2();
+    serializeJson(doc,buff);
+    Serial.println(buff);
+    client.publish("Device/BO",buff);
+    tsLastReport = millis();
   }
 }
