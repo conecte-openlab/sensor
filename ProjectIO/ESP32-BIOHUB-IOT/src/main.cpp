@@ -1,179 +1,131 @@
-#include <Arduino.h>
+#include <ESP8266WiFi.h>
+#include <PubSubClient.h>
 #include <Wire.h>
-#include <WiFi.h>
+#include "MAX30100_PulseOximeter.h"
+
+PulseOximeter pox;
+
 #include <ArduinoJson.h>
 
-extern "C" {
-	#include "freertos/FreeRTOS.h"
-	#include "freertos/timers.h"
+#define REPORTING_PERIOD_MS 10000
+
+uint32_t tsLastReport = 0;
+
+const char* ssid = "MERCUSYS";
+const char* password = "ic123456";
+const char* mqtt_server = "192.168.1.113";
+const int mqtt_port = 1883;
+
+
+
+DynamicJsonDocument doc(1024);
+char buff[1000];
+WiFiClient espClient;
+PubSubClient client(espClient);
+unsigned long lastMsg = 0;
+#define MSG_BUFFER_SIZE	(50)
+char msg[MSG_BUFFER_SIZE];
+int value = 0;
+
+void onBeatDetected()
+{
+    Serial.print("b");
 }
 
-#include <AsyncMqttClient.h>
-#include "FS.h"
-#include "LITTLEFS.h"
+void setup_wifi() {
 
-// Constantes
+  delay(10);
+  // We start by connecting to a WiFi network
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
 
-#define WIFI_SSID "MERCUSYS_0422"
-#define WIFI_PASSWORD "123456789"
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
 
-#define MQTT_HOST IPAddress(192, 168, 0, 100)
-#define MQTT_PORT 1883
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
 
-//definição de variávies e objetos
+  randomSeed(micros());
 
-AsyncMqttClient mqttClient;
-TimerHandle_t mqttReconnectTimer;
-TimerHandle_t wifiReconnectTimer;  
-char buff[256];
-DynamicJsonDocument  doc(200);
-
-
-// funções extras
-
-void connectToWifi() {
-
-  Serial.println("Connecting to Wi-Fi...");
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  delay(3000);
-  if ((WiFi.status() == WL_CONNECTED)){
-  Serial.print(WiFi.localIP());  
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
 }
-  return;
-}
-void connectToMqtt() {
-  Serial.println("Connecting to MQTT...");
-  mqttClient.connect();
-  delay(4000);
-}
-void onMqttConnect(bool sessionPresent) {
-  Serial.println("Connected to MQTT.");
-  Serial.print("Session present: ");
-  Serial.println(sessionPresent);
-  uint16_t packetIdSub = mqttClient.subscribe("test/lol", 2);
-  Serial.print("Subscribing at QoS 2, packetId: ");
-  Serial.println(packetIdSub);
-  mqttClient.publish("test/lol", 0, true, "test 1");
-  Serial.println("Publishing at QoS 0");
-  uint16_t packetIdPub1 = mqttClient.publish("test/lol", 1, true, "test 2");
-  Serial.print("Publishing at QoS 1, packetId: ");
-  Serial.println(packetIdPub1);
-  uint16_t packetIdPub2 = mqttClient.publish("test/lol", 2, true, "test 3");
-  Serial.print("Publishing at QoS 2, packetId: ");
-  Serial.println(packetIdPub2);
-}
-void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
-  Serial.println("Disconnected from MQTT.");
 
-  if (WiFi.isConnected()) {
-    xTimerStart(mqttReconnectTimer, 0);
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+}
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Create a random client ID
+    String clientId = "ESP8266Client-";
+    clientId += String(random(0xffff), HEX);
+    // Attempt to connect
+    if (client.connect(clientId.c_str())) {
+      Serial.println("connected");
+      // Once connected, publish an announcement...
+      client.publish("outTopic", "hello world");
+      // ... and resubscribe
+      client.subscribe("inTopic");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
   }
 }
-void onMqttSubscribe(uint16_t packetId, uint8_t qos) {
-  Serial.println("Subscribe acknowledged.");
-  Serial.print("  packetId: ");
-  Serial.println(packetId);
-  Serial.print("  qos: ");
-  Serial.println(qos);
-}
-void onMqttUnsubscribe(uint16_t packetId) {
-  Serial.println("Unsubscribe acknowledged.");
-  Serial.print("  packetId: ");
-  Serial.println(packetId);
-}
-void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
-  Serial.println("Publish received.");
-  Serial.print("  topic: ");
-  Serial.println(topic);
-  Serial.print("  qos: ");
-  Serial.println(properties.qos);
-  Serial.print("  dup: ");
-  Serial.println(properties.dup);
-  Serial.print("  retain: ");
-  Serial.println(properties.retain);
-  Serial.print("  len: ");
-  Serial.println(len);
-  Serial.print("  index: ");
-  Serial.println(index);
-  Serial.print("  total: ");
-  Serial.println(total);
-}
-void onMqttPublish(uint16_t packetId) {
-  Serial.println("Publish acknowledged.");
-  Serial.print("  packetId: ");
-  Serial.println(packetId);
-}
 
-void setup(){
-  
+void setup() {
   Serial.begin(115200);
+  setup_wifi();
+  client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
 
-//Timers reconexão
-
-  mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToMqtt));
-  wifiReconnectTimer = xTimerCreate("wifiTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToWifi));
-
-//Configuração mqtt
-  mqttClient.onConnect(onMqttConnect);
-  mqttClient.onDisconnect(onMqttDisconnect);
-  mqttClient.onSubscribe(onMqttSubscribe);
-  mqttClient.onUnsubscribe(onMqttUnsubscribe);
-  mqttClient.onMessage(onMqttMessage);
-  mqttClient.onPublish(onMqttPublish);
-  mqttClient.setServer(MQTT_HOST, MQTT_PORT);
-
-  // conexão wifi e server mqtt
-  connectToWifi();
-
-  connectToMqtt();
-  // I2C
-  Wire.begin();
+  // Config BioHub
+  if (!pox.begin()) {
+        Serial.println("FAILED");
+        for(;;);
+    } else {
+        Serial.println("SUCCESS");
+    }
   
-  // Configuração Bio Hub
-  int result = bioHub.begin();
-  if (result == 0) //Zero errors!
-    Serial.println("Sensor started!");
-  else
-    Serial.println("Could not communicate with the sensor!!!");
- 
-  Serial.println("Configuring Sensor...."); 
-  
-  int error = bioHub.configBpm(MODE_TWO); // Configuring just the BPM settings. 
-  if(error == 0){ // Zero errors
-    Serial.println("Sensor configured.");
-  }
-  else {
-    Serial.println("Error configuring sensor.");
-    Serial.print("Error: "); 
-    Serial.println(error); 
-  }
-  Serial.println("Loading up the buffer with data....");
-  delay(4000); 
+  pox.setIRLedCurrent(MAX30100_LED_CURR_7_6MA);
+  pox.setOnBeatDetectedCallback(onBeatDetected);
+  // End Config Bio
 
-  // Subscribe no topico
-  mqttClient.subscribe("devices/esp",0);
-  
 }
 
-//Loop 
-void loop(){
-    // Lendo dados e adicionando no doc
-    body = bioHub.readBpm();
-    Serial.print("Heartrate: ");
-    Serial.println(body.heartRate); 
-    Serial.print("Oxygen: ");
-    Serial.println(body.oxygen); 
-    Serial.print("Status: ");
-    Serial.println(body.status); 
-    Serial.print("Extended Status: ");
-    Serial.println(body.extStatus);
+void loop() {
+  
+  pox.update();
 
-  if ((body.status==3)&&(body.extStatus==0)&&(body.heartRate!=0)){
-    doc["Heart"] = body.heartRate;
-    doc["Oxygen"] = body.oxygen;
-
-    serializeJson(doc,buff);
-    mqttClient.publish("devices/esp",0,true,buff);
+  if (millis() - tsLastReport > REPORTING_PERIOD_MS) {
+  if (!client.connected()) {
+    reconnect();
   }
-    delay(2500); 
+  client.loop();
+  doc["heartrate"] = pox.getHeartRate();
+  doc["oxygen"] = pox.getSpO2();
+
+  serializeJson(doc,buff);
+  Serial.println(buff);
+  client.publish("Device/BO",buff);
+
+  tsLastReport = millis();
+  }
 }
